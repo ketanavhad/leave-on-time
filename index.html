@@ -2,136 +2,213 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+
+  <!-- 🔥 IMPORTANT: fixes zooming on mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>U5 Live Board</title>
+
   <style>
+    /* ---------------- BASE ---------------- */
+
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f4f4f4;
-      max-width: 480px;
+      margin: 0;
+      font-family: system-ui, -apple-system, Arial, sans-serif;
+
+      /* mobile-friendly spacing */
+      padding: 14px;
+
+      /* dark mode */
+      background: #0f1115;
+      color: #e8e8e8;
+
+      /* center but full mobile width */
+      max-width: 520px;
       margin: auto;
     }
-    h2 { margin-bottom: 10px; }
-    .section { margin-bottom: 25px; }
+
+    h2 {
+      font-size: 20px;
+      margin: 8px 0 16px;
+      font-weight: 600;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 500;
+      color: #b7b7b7;
+      margin: 18px 0 10px;
+    }
+
+    /* ---------------- SECTIONS ---------------- */
+
+    .section {
+      margin-bottom: 18px;
+    }
+
+    /* ---------------- TRAIN CARD ---------------- */
+
     .train {
-      background: white;
+      background: #1a1d24;
       margin-bottom: 10px;
-      padding: 12px;
-      border-left: 5px solid #222;
-      border-radius: 6px;
+      padding: 12px 12px;
+      border-radius: 10px;
+
+      border-left: 4px solid #3a3f4b;
+
+      /* subtle elevation */
+      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
     }
+
     .line {
-      font-size: 18px;
-      font-weight: bold;
-    }
-    .time {
       font-size: 16px;
-      margin-top: 4px;
+      font-weight: 600;
+      color: #ffffff;
     }
+
+    .time {
+      font-size: 14px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
     .small {
-      color: #666;
-      font-size: 13px;
-      margin-top: 3px;
+      color: #9aa0a6;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    /* ---------------- MOBILE OPTIMIZATION ---------------- */
+
+    @media (max-width: 420px) {
+      body {
+        padding: 10px;
+      }
+
+      .train {
+        padding: 10px;
+      }
+
+      .line {
+        font-size: 15px;
+      }
     }
   </style>
 </head>
+
 <body>
 
-<h2>U5 – Live Departures</h2>
+<h2>U5 – Live Departures</h2>
 
 <div class="section">
-  <h3>→ Hönow (from Alexanderplatz)</h3>
+  <h3>→ Hönow (from Alexanderplatz)</h3>
   <div id="honow">Loading…</div>
 </div>
 
 <div class="section">
-  <h3>→ Hauptbahnhof (from Samariterstr.)</h3>
+  <h3>→ Hauptbahnhof (from Samariterstr.)</h3>
   <div id="hbf">Loading…</div>
 </div>
 
 <script>
+
 /* ---------- CONFIG ---------- */
+
 const CONFIG = {
   honow: {
-    stopId: "900100003", // Alexanderplatz
+    stopId: "900100003",
     direction: "hönow"
   },
   hbf: {
-    stopId: "900120009", // Samariterstr.
+    stopId: "900120009",
     direction: "hauptbahnhof"
   }
 };
 
 /* ---------- API ---------- */
+
 async function fetchDepartures(stopId) {
   const url = `https://v6.bvg.transport.rest/stops/${stopId}/departures?products=subway&lines=U5&results=60&duration=100`;
-  console.log("Fetching:", url);
+
   try {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     const data = await res.json();
     return data.departures || [];
   } catch (err) {
-    console.error("Fetch failed:", err);
+    console.error(err);
     return [];
   }
 }
 
 /* ---------- FILTER ---------- */
+
 function filterU5ByDirection(deps, keyword) {
   const kw = keyword.toLowerCase();
+
   return deps.filter(dep => {
     if (dep.line?.name !== "U5") return false;
+
     const dir = dep.direction?.toLowerCase() || "";
     const dest = dep.destination?.name?.toLowerCase() || "";
+
     return dir.includes(kw) || dest.includes(kw);
   });
 }
 
 /* ---------- RENDER ---------- */
+
 function renderList(containerId, departures) {
   const container = document.getElementById(containerId);
   container.innerHTML = "";
 
   if (!departures.length) {
-    container.innerHTML = "<i>No U5 trains found</i>";
+    container.innerHTML = "<i style='color:#aaa'>No U5 trains found</i>";
     return;
   }
 
-  // ⬇️ show only 4 upcoming trains
   departures.slice(0, 4).forEach(dep => {
     const when = new Date(dep.when);
-    const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const mins = getMinutesUntil(dep.when);
-    const label = mins <= 0 ? "NOW" : `in ${mins} min`;
 
-    let color = "#2e7d32";
-    if (mins <= 3) color = "#c62828";
-    else if (mins <= 6) color = "#ef6c00";
+    const time = when.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const mins = getMinutesUntil(dep.when);
+
+    let label = mins <= 0 ? "NOW" : `in ${mins} min`;
+
+    let color = "#4caf50";
+    if (mins <= 3) color = "#ff4d4d";
+    else if (mins <= 6) color = "#ffb300";
 
     const direction = dep.direction?.name || dep.direction || "U5";
 
     const div = document.createElement("div");
     div.className = "train";
+
     div.innerHTML = `
-      <div class="line">U5 → ${direction}</div>
+      <div class="line">U5 → ${direction}</div>
       <div class="time" style="color:${color}">${label}</div>
       <div class="small">
-        ${time}${dep.delay > 0 ? ` (+${(dep.delay / 60).toFixed(1)} min delay)` : ""}
+        ${time}
+        ${dep.delay ? `(+${(dep.delay / 60).toFixed(0)} min)` : ""}
       </div>
     `;
+
     container.appendChild(div);
   });
 }
 
 /* ---------- UTILS ---------- */
+
 function getMinutesUntil(timeString) {
   return Math.round((new Date(timeString) - new Date()) / 60000);
 }
 
 /* ---------- MAIN ---------- */
+
 async function loadAll() {
-  console.log("Refreshing data...");
   const deps1 = await fetchDepartures(CONFIG.honow.stopId);
   const honowTrains = filterU5ByDirection(deps1, CONFIG.honow.direction);
   renderList("honow", honowTrains);
@@ -143,6 +220,8 @@ async function loadAll() {
 
 loadAll();
 setInterval(loadAll, 30000);
+
 </script>
+
 </body>
 </html>
