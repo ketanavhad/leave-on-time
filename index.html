@@ -1,57 +1,148 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <link rel="manifest" href="manifest.json">	
-  <title>Next Trains</title>
+  <meta charset="UTF-8" />
+  <title>U5 Live Board</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    .train { margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+      max-width: 480px;
+      margin: auto;
+    }
+    h2 { margin-bottom: 10px; }
+    .section { margin-bottom: 25px; }
+    .train {
+      background: white;
+      margin-bottom: 10px;
+      padding: 12px;
+      border-left: 5px solid #222;
+      border-radius: 6px;
+    }
+    .line {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .time {
+      font-size: 16px;
+      margin-top: 4px;
+    }
+    .small {
+      color: #666;
+      font-size: 13px;
+      margin-top: 3px;
+    }
   </style>
 </head>
 <body>
 
-<h2>Next 3 Trains (U8 / BVG)</h2>
+<h2>U5 – Live Departures</h2>
 
-<div id="trains">Loading...</div>
+<div class="section">
+  <h3>→ Hönow (from Alexanderplatz)</h3>
+  <div id="honow">Loading…</div>
+</div>
+
+<div class="section">
+  <h3>→ Hauptbahnhof (from Samariterstr.)</h3>
+  <div id="hbf">Loading…</div>
+</div>
 
 <script>
-async function loadTrains() {
-  const url = "https://v6.bvg.transport.rest/stops/900100003/departures?products=subway&lines=U8&direction=900120001&results=3&duration=30";
+/* ---------- CONFIG ---------- */
+const CONFIG = {
+  honow: {
+    stopId: "900100003", // Alexanderplatz
+    direction: "hönow"
+  },
+  hbf: {
+    stopId: "900120009", // Samariterstr.
+    direction: "hauptbahnhof"
+  }
+};
 
+/* ---------- API ---------- */
+async function fetchDepartures(stopId) {
+  const url = `https://v6.bvg.transport.rest/stops/${stopId}/departures?products=subway&lines=U5&results=60&duration=100`;
+  console.log("Fetching:", url);
   try {
     const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     const data = await res.json();
-
-    const container = document.getElementById("trains");
-    container.innerHTML = "";
-
-    data.departures.slice(0, 3).forEach(dep => {
-      const time = new Date(dep.when).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      const div = document.createElement("div");
-      div.className = "train";
-
-      div.innerHTML = `
-        <strong>${dep.line.name}</strong><br/>
-        Direction: ${dep.direction}<br/>
-        Time: ${time}
-      `;
-
-      container.appendChild(div);
-    });
-
+    return data.departures || [];
   } catch (err) {
-    document.getElementById("trains").innerText = "Error loading data";
-    console.error(err);
+    console.error("Fetch failed:", err);
+    return [];
   }
 }
 
-loadTrains();
-setInterval(loadTrains, 30000); // refresh every 30 sec
-</script>
+/* ---------- FILTER ---------- */
+function filterU5ByDirection(deps, keyword) {
+  const kw = keyword.toLowerCase();
+  return deps.filter(dep => {
+    if (dep.line?.name !== "U5") return false;
+    const dir = dep.direction?.toLowerCase() || "";
+    const dest = dep.destination?.name?.toLowerCase() || "";
+    return dir.includes(kw) || dest.includes(kw);
+  });
+}
 
+/* ---------- RENDER ---------- */
+function renderList(containerId, departures) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+
+  if (!departures.length) {
+    container.innerHTML = "<i>No U5 trains found</i>";
+    return;
+  }
+
+  // ⬇️ show only 4 upcoming trains
+  departures.slice(0, 4).forEach(dep => {
+    const when = new Date(dep.when);
+    const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const mins = getMinutesUntil(dep.when);
+    const label = mins <= 0 ? "NOW" : `in ${mins} min`;
+
+    let color = "#2e7d32";
+    if (mins <= 3) color = "#c62828";
+    else if (mins <= 6) color = "#ef6c00";
+
+    const direction = dep.direction?.name || dep.direction || "U5";
+
+    const div = document.createElement("div");
+    div.className = "train";
+    div.innerHTML = `
+      <div class="line">U5 → ${direction}</div>
+      <div class="time" style="color:${color}">${label}</div>
+      <div class="small">
+        ${time}${dep.delay > 0 ? ` (+${(dep.delay / 60).toFixed(1)} min delay)` : ""}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+/* ---------- UTILS ---------- */
+function getMinutesUntil(timeString) {
+  return Math.round((new Date(timeString) - new Date()) / 60000);
+}
+
+/* ---------- MAIN ---------- */
+async function loadAll() {
+  console.log("Refreshing data...");
+  const deps1 = await fetchDepartures(CONFIG.honow.stopId);
+  const honowTrains = filterU5ByDirection(deps1, CONFIG.honow.direction);
+  renderList("honow", honowTrains);
+
+  const deps2 = await fetchDepartures(CONFIG.hbf.stopId);
+  const hbfTrains = filterU5ByDirection(deps2, CONFIG.hbf.direction);
+  renderList("hbf", hbfTrains);
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
 </body>
 </html>
