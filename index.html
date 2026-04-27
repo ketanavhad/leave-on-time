@@ -2,27 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-
-  <!-- 🔥 IMPORTANT: fixes zooming on mobile -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>U5 Live Board</title>
 
   <style>
-    /* ---------------- BASE ---------------- */
-
     body {
       margin: 0;
       font-family: system-ui, -apple-system, Arial, sans-serif;
-
-      /* mobile-friendly spacing */
       padding: 14px;
-
-      /* dark mode */
       background: #0f1115;
       color: #e8e8e8;
-
-      /* center but full mobile width */
       max-width: 520px;
       margin: auto;
     }
@@ -40,23 +29,16 @@
       margin: 18px 0 10px;
     }
 
-    /* ---------------- SECTIONS ---------------- */
-
     .section {
       margin-bottom: 18px;
     }
 
-    /* ---------------- TRAIN CARD ---------------- */
-
     .train {
       background: #1a1d24;
       margin-bottom: 10px;
-      padding: 12px 12px;
+      padding: 12px;
       border-radius: 10px;
-
       border-left: 4px solid #3a3f4b;
-
-      /* subtle elevation */
       box-shadow: 0 1px 6px rgba(0,0,0,0.25);
     }
 
@@ -78,20 +60,10 @@
       margin-top: 2px;
     }
 
-    /* ---------------- MOBILE OPTIMIZATION ---------------- */
-
     @media (max-width: 420px) {
-      body {
-        padding: 10px;
-      }
-
-      .train {
-        padding: 10px;
-      }
-
-      .line {
-        font-size: 15px;
-      }
+      body { padding: 10px; }
+      .train { padding: 10px; }
+      .line { font-size: 15px; }
     }
   </style>
 </head>
@@ -116,12 +88,12 @@
 
 const CONFIG = {
   honow: {
-    stopId: "900100003",
-    direction: "hönow"
+    stopId: "900100003", // Alexanderplatz
+    directions: ["hönow", "kaulsdorf"] // include short-turn trains
   },
   hbf: {
-    stopId: "900120009",
-    direction: "hauptbahnhof"
+    stopId: "900120009", // Samariterstr.
+    directions: ["hauptbahnhof"]
   }
 };
 
@@ -135,24 +107,35 @@ async function fetchDepartures(stopId) {
     const data = await res.json();
     return data.departures || [];
   } catch (err) {
-    console.error(err);
+    console.error("Fetch error:", err);
     return [];
   }
 }
 
 /* ---------- FILTER ---------- */
 
-function filterU5ByDirection(deps, keyword) {
-  const kw = keyword.toLowerCase();
+function filterU5ByDirection(deps, keywords) {
+  const kws = keywords.map(k => k.toLowerCase());
 
   return deps.filter(dep => {
     if (dep.line?.name !== "U5") return false;
 
-    const dir = dep.direction?.toLowerCase() || "";
-    const dest = dep.destination?.name?.toLowerCase() || "";
+    const dir = (dep.direction || "").toString().toLowerCase();
+    const dest = (dep.destination?.name || "").toLowerCase();
 
-    return dir.includes(kw) || dest.includes(kw);
+    return kws.some(kw => dir.includes(kw) || dest.includes(kw));
   });
+}
+
+/* ---------- TIME UTILS ---------- */
+
+function getMinutesUntil(timeString) {
+  return Math.round((new Date(timeString) - new Date()) / 60000);
+}
+
+function formatTime(dateString) {
+  const d = new Date(dateString);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 /* ---------- RENDER ---------- */
@@ -167,22 +150,20 @@ function renderList(containerId, departures) {
   }
 
   departures.slice(0, 4).forEach(dep => {
-    const when = new Date(dep.when);
-
-    const time = when.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-
     const mins = getMinutesUntil(dep.when);
+    const time = formatTime(dep.when);
 
-    let label = mins <= 0 ? "NOW" : `in ${mins} min`;
+    const label = mins <= 0 ? "NOW" : `in ${mins} min`;
 
     let color = "#4caf50";
     if (mins <= 3) color = "#ff4d4d";
     else if (mins <= 6) color = "#ffb300";
 
-    const direction = dep.direction?.name || dep.direction || "U5";
+    const direction =
+      dep.direction?.name ||
+      dep.direction ||
+      dep.destination?.name ||
+      "U5";
 
     const div = document.createElement("div");
     div.className = "train";
@@ -192,7 +173,7 @@ function renderList(containerId, departures) {
       <div class="time" style="color:${color}">${label}</div>
       <div class="small">
         ${time}
-        ${dep.delay ? `(+${(dep.delay / 60).toFixed(0)} min)` : ""}
+        ${dep.delay ? `(+${Math.round(dep.delay / 60)} min)` : ""}
       </div>
     `;
 
@@ -200,21 +181,15 @@ function renderList(containerId, departures) {
   });
 }
 
-/* ---------- UTILS ---------- */
-
-function getMinutesUntil(timeString) {
-  return Math.round((new Date(timeString) - new Date()) / 60000);
-}
-
 /* ---------- MAIN ---------- */
 
 async function loadAll() {
   const deps1 = await fetchDepartures(CONFIG.honow.stopId);
-  const honowTrains = filterU5ByDirection(deps1, CONFIG.honow.direction);
+  const honowTrains = filterU5ByDirection(deps1, CONFIG.honow.directions);
   renderList("honow", honowTrains);
 
   const deps2 = await fetchDepartures(CONFIG.hbf.stopId);
-  const hbfTrains = filterU5ByDirection(deps2, CONFIG.hbf.direction);
+  const hbfTrains = filterU5ByDirection(deps2, CONFIG.hbf.directions);
   renderList("hbf", hbfTrains);
 }
 
