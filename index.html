@@ -1,200 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>U5 Live Board</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Arial, sans-serif;
-      padding: 14px;
-      background: #0f1115;
-      color: #e8e8e8;
-      max-width: 520px;
-      margin: auto;
-    }
+<title>Transit Decision System</title>
 
-    h2 {
-      font-size: 20px;
-      margin: 8px 0 16px;
-      font-weight: 600;
-    }
+<style>
+:root {
+  --bg: #0b0b0d;
+  --card: #15151a;
+  --text: #f0f0f0;
+  --sub: #9a9aa0;
+  --accent: #7b1e2b;
+  --accent2: #a83244;
+}
 
-    h3 {
-      font-size: 15px;
-      font-weight: 500;
-      color: #b7b7b7;
-      margin: 18px 0 10px;
-    }
+body {
+  margin: 0;
+  padding: 28px;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 760px;
+  margin: auto;
+}
 
-    .section {
-      margin-bottom: 18px;
-    }
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
 
-    .train {
-      background: #1a1d24;
-      margin-bottom: 10px;
-      padding: 12px;
-      border-radius: 10px;
-      border-left: 4px solid #3a3f4b;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
-    }
+/* ---------------- DECISION ---------------- */
 
-    .line {
-      font-size: 16px;
-      font-weight: 600;
-      color: #ffffff;
-    }
+.decision {
+  background: var(--card);
+  padding: 16px;
+  margin-bottom: 14px;
+  border-left: 4px solid var(--accent);
+}
 
-    .time {
-      font-size: 14px;
-      margin-top: 4px;
-      font-weight: 500;
-    }
+.secondary {
+  opacity: 0.7;
+  border-left: 4px solid var(--accent2);
+}
 
-    .small {
-      color: #9aa0a6;
-      font-size: 12px;
-      margin-top: 2px;
-    }
+.title {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--sub);
+}
 
-    @media (max-width: 420px) {
-      body { padding: 10px; }
-      .train { padding: 10px; }
-      .line { font-size: 15px; }
-    }
-  </style>
+.big {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.small {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 6px;
+}
+
+/* ---------------- TIMETABLE ---------------- */
+
+.section {
+  margin-top: 22px;
+}
+
+.section-title {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--sub);
+  margin-bottom: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 70px 1fr 80px;
+  padding: 10px;
+  background: var(--card);
+  border-left: 3px solid transparent;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
+
+.row.best {
+  border-left: 4px solid var(--accent);
+  opacity: 1;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.route {
+  font-size: 13px;
+}
+
+.count {
+  text-align: right;
+  font-size: 12px;
+  color: var(--sub);
+}
+
+/* ---------------- ANIMATION ---------------- */
+
+.fade {
+  animation: fadeIn 0.35s ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+</style>
 </head>
 
 <body>
 
-<h2>U5 – Live Departures</h2>
+<h2>Transit Decision System</h2>
+
+<div id="decision"></div>
 
 <div class="section">
-  <h3>→ Hönow (from Alexanderplatz)</h3>
-  <div id="honow">Loading…</div>
+  <div class="section-title">Next trains — Alexanderplatz</div>
+  <div id="alexList"></div>
 </div>
 
 <div class="section">
-  <h3>→ Hauptbahnhof (from Samariterstr.)</h3>
-  <div id="hbf">Loading…</div>
+  <div class="section-title">Next trains — Samariterstraße</div>
+  <div id="samList"></div>
 </div>
 
 <script>
 
-/* ---------- CONFIG ---------- */
+/* ---------------- CONFIG ---------------- */
 
 const CONFIG = {
-  honow: {
-    stopId: "900100003", // Alexanderplatz
-    directions: ["hönow", "kaulsdorf"] // include short-turn trains
+  alex: {
+    stopId: "900100003",
+    name: "Alexanderplatz",
+    walk: 7,
+    directions: ["hönow", "kaulsdorf"]
   },
-  hbf: {
-    stopId: "900120009", // Samariterstr.
+  samariter: {
+    stopId: "900120009",
+    name: "Samariterstraße",
+    walk: 9,
     directions: ["hauptbahnhof"]
   }
 };
 
-/* ---------- API ---------- */
+/* ---------------- API ---------------- */
 
-async function fetchDepartures(stopId) {
-  const url = `https://v6.bvg.transport.rest/stops/${stopId}/departures?products=subway&lines=U5&results=60&duration=100`;
-
+async function fetchDepartures(id) {
   try {
-    const res = await fetch(url);
-    const data = await res.json();
-    return data.departures || [];
-  } catch (err) {
-    console.error("Fetch error:", err);
+    const r = await fetch(
+      `https://v6.bvg.transport.rest/stops/${id}/departures?products=subway&lines=U5&results=60&duration=100`
+    );
+    const d = await r.json();
+    return d.departures || [];
+  } catch {
     return [];
   }
 }
 
-/* ---------- FILTER ---------- */
+/* ---------------- FILTER ---------------- */
 
-function filterU5ByDirection(deps, keywords) {
-  const kws = keywords.map(k => k.toLowerCase());
+function filter(deps, kws) {
+  kws = kws.map(k => k.toLowerCase());
 
-  return deps.filter(dep => {
-    if (dep.line?.name !== "U5") return false;
-
-    const dir = (dep.direction || "").toString().toLowerCase();
-    const dest = (dep.destination?.name || "").toLowerCase();
-
-    return kws.some(kw => dir.includes(kw) || dest.includes(kw));
+  return deps.filter(d => {
+    const dir = (d.direction || "").toLowerCase();
+    const dest = (d.destination?.name || "").toLowerCase();
+    return kws.some(k => dir.includes(k) || dest.includes(k));
   });
 }
 
-/* ---------- TIME UTILS ---------- */
+/* ---------------- TIME ---------------- */
 
-function getMinutesUntil(timeString) {
-  return Math.round((new Date(timeString) - new Date()) / 60000);
+const mins = t => Math.round((new Date(t) - new Date()) / 60000);
+
+function label(t) {
+  const m = mins(t);
+  if (m <= 0) return "NOW";
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m/60)}h`;
 }
 
-function formatTime(dateString) {
-  const d = new Date(dateString);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+/* ---------------- BEST ---------------- */
+
+function bestOption(deps, walk, station) {
+  const valid = deps
+    .map(d => ({ ...d, m: mins(d.when), station, walk }))
+    .filter(d => d.m >= walk);
+
+  if (!valid.length) return null;
+
+  valid.sort((a, b) => a.m - b.m);
+  return valid[0];
 }
 
-/* ---------- RENDER ---------- */
+/* ---------------- DECISION ---------------- */
 
-function renderList(containerId, departures) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = "";
+function buildDecision(a, s) {
+  const list = [a, s].filter(Boolean);
+  list.sort((x, y) => (x.m - x.walk) - (y.m - y.walk));
 
-  if (!departures.length) {
-    container.innerHTML = "<i style='color:#aaa'>No U5 trains found</i>";
-    return;
-  }
+  return {
+    primary: list[0] || null,
+    secondary: list[1] || null
+  };
+}
 
-  departures.slice(0, 4).forEach(dep => {
-    const mins = getMinutesUntil(dep.when);
-    const time = formatTime(dep.when);
+/* ---------------- RENDER DECISION ---------------- */
 
-    const label = mins <= 0 ? "NOW" : `in ${mins} min`;
+function renderDecision(d) {
+  const el = document.getElementById("decision");
 
-    let color = "#4caf50";
-    if (mins <= 3) color = "#ff4d4d";
-    else if (mins <= 6) color = "#ffb300";
+  const block = (item, sec=false) => {
+    if (!item) return "";
 
-    const direction =
-      dep.direction?.name ||
-      dep.direction ||
-      dep.destination?.name ||
-      "U5";
+    const leaveIn = item.m - item.walk;
 
-    const div = document.createElement("div");
-    div.className = "train";
+    return `
+      <div class="decision fade ${sec ? "secondary" : ""}">
+        <div class="title">${item.station}</div>
 
-    div.innerHTML = `
-      <div class="line">U5 → ${direction}</div>
-      <div class="time" style="color:${color}">${label}</div>
-      <div class="small">
-        ${time}
-        ${dep.delay ? `(+${Math.round(dep.delay / 60)} min)` : ""}
+        <div class="big">
+          ${sec ? "Alternative → " : "GO → "}
+          Leave in ${leaveIn} min
+        </div>
+
+        <div class="small">
+          Next train in ${label(item.when)}
+        </div>
       </div>
     `;
+  };
 
-    container.appendChild(div);
-  });
+  el.innerHTML = `
+    ${block(d.primary)}
+    ${block(d.secondary, true)}
+  `;
 }
 
-/* ---------- MAIN ---------- */
+/* ---------------- RENDER LIST ---------------- */
 
-async function loadAll() {
-  const deps1 = await fetchDepartures(CONFIG.honow.stopId);
-  const honowTrains = filterU5ByDirection(deps1, CONFIG.honow.directions);
-  renderList("honow", honowTrains);
+function renderList(id, deps) {
+  const el = document.getElementById(id);
 
-  const deps2 = await fetchDepartures(CONFIG.hbf.stopId);
-  const hbfTrains = filterU5ByDirection(deps2, CONFIG.hbf.directions);
-  renderList("hbf", hbfTrains);
+  el.innerHTML = deps.slice(0, 4).map(d => `
+    <div class="row fade">
+      <div class="time">${label(d.when)}</div>
+      <div class="route">U5 → ${d.direction || d.destination?.name}</div>
+      <div class="count">${new Date(d.when).toLocaleTimeString([], {
+        hour:"2-digit",
+        minute:"2-digit"
+      })}</div>
+    </div>
+  `).join("");
 }
 
-loadAll();
-setInterval(loadAll, 30000);
+/* ---------------- LOAD ---------------- */
+
+async function load() {
+  const a = await fetchDepartures(CONFIG.alex.stopId);
+  const s = await fetchDepartures(CONFIG.samariter.stopId);
+
+  const alex = filter(a, CONFIG.alex.directions);
+  const sam = filter(s, CONFIG.samariter.directions);
+
+  const alexBest = bestOption(alex, CONFIG.alex.walk, CONFIG.alex.name);
+  const samBest = bestOption(sam, CONFIG.samariter.walk, CONFIG.samariter.name);
+
+  renderDecision(buildDecision(alexBest, samBest));
+
+  renderList("alexList", alex);
+  renderList("samList", sam);
+}
+
+/* ---------------- INIT ---------------- */
+
+load();
+setInterval(load, 30000);
 
 </script>
 
