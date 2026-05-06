@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Transit Decision System</title>
 
 <style>
@@ -13,7 +12,8 @@
   --text: #f0f0f0;
   --sub: #9a9aa0;
   --accent: #7b1e2b;
-  --accent2: #a83244;
+  --danger: #ff2a2a;
+  --maroon: #3a0f14;
 }
 
 body {
@@ -28,43 +28,146 @@ body {
 
 h2 {
   font-size: 22px;
-  font-weight: 700;
   margin-bottom: 18px;
 }
 
-/* ---------------- DECISION ---------------- */
+/* ================= CARD ================= */
 
-.decision {
+.card {
   background: var(--card);
   padding: 16px;
   margin-bottom: 14px;
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid #333;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.secondary {
-  opacity: 0.7;
-  border-left: 4px solid var(--accent2);
+.active {
+  border-left-color: var(--accent);
+  box-shadow: 0 0 18px rgba(123,30,43,0.25);
+  transform: scale(1.02);
 }
 
-.title {
-  font-size: 11px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--sub);
+.inactive {
+  border-left-color: var(--maroon);
+  transform: scale(0.98);
+  opacity: 0.95;
 }
 
-.big {
-  font-size: 18px;
-  font-weight: 700;
+.pulse {
+  animation: pulse 1.2s infinite;
+  border-left-color: var(--danger);
 }
 
-.small {
-  font-size: 12px;
-  color: var(--sub);
-  margin-top: 6px;
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 rgba(255,0,0,0); }
+  50% { box-shadow: 0 0 25px rgba(255,0,0,0.45); }
+  100% { box-shadow: 0 0 0 rgba(255,0,0,0); }
 }
 
-/* ---------------- TIMETABLE ---------------- */
+/* ================= GAUGE ================= */
+
+.bar-meter {
+  display: flex;
+  gap: 4px;
+  margin: 10px 0 6px;
+  height: 7px;
+}
+
+/* base bar */
+.bar {
+  flex: 1;
+  background: #1a1a20;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ACTIVE bars */
+.bar.on {
+  animation: fillIn 260ms ease forwards;
+}
+
+@keyframes fillIn {
+  from {
+    transform: scaleY(0.7);
+    opacity: 0.3;
+    filter: brightness(0.6);
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+/* color gradient */
+.bar-meter .bar.on:nth-child(1) { background: #ff6b6b; }
+.bar-meter .bar.on:nth-child(2) { background: #ff4d4d; }
+.bar-meter .bar.on:nth-child(3) { background: #ff2f2f; }
+.bar-meter .bar.on:nth-child(4) { background: #e60000; }
+.bar-meter .bar.on:nth-child(5) { background: #ff0000; }
+
+/* LAST BAR PULSE (active only) */
+.bar-meter .bar.on:last-child {
+  animation: lastPulse 0.85s infinite ease-in-out;
+  box-shadow: 0 0 14px rgba(255, 0, 0, 0.45);
+}
+
+@keyframes lastPulse {
+  0% { transform: scaleY(1); }
+  50% { transform: scaleY(1.2); filter: brightness(1.4); }
+  100% { transform: scaleY(1); }
+}
+
+/* CRITICAL STATE */
+.bar-meter.critical .bar.on {
+  background: linear-gradient(180deg, #ff1a1a, #3a0000);
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.55);
+}
+
+/* ================= INACTIVE METER (ENHANCED "LIVING STATIC" MODE) ================= */
+
+.bar-meter.meter-inactive .bar {
+  background: #15151a;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+}
+
+/* active-but-in-inactive-card bars */
+.bar-meter.meter-inactive .bar.on {
+  animation: none !important;
+  box-shadow:
+    inset 0 0 6px rgba(0,0,0,0.6),
+    0 0 1px rgba(255,255,255,0.03);
+  opacity: 0.85;
+}
+
+/* subtle “depth gradient” per bar position */
+.bar-meter.meter-inactive .bar.on:nth-child(1) {
+  background: linear-gradient(180deg, #2a1b1b, #141418);
+}
+
+.bar-meter.meter-inactive .bar.on:nth-child(2) {
+  background: linear-gradient(180deg, #2a1a1a, #141418);
+}
+
+.bar-meter.meter-inactive .bar.on:nth-child(3) {
+  background: linear-gradient(180deg, #2a1616, #141418);
+}
+
+.bar-meter.meter-inactive .bar.on:nth-child(4) {
+  background: linear-gradient(180deg, #2a1414, #141418);
+}
+
+.bar-meter.meter-inactive .bar.on:nth-child(5) {
+  background: linear-gradient(180deg, #2a1212, #141418);
+}
+
+/* soften contrast so it doesn't compete with active card */
+.card.inactive .bar-meter {
+  opacity: 0.9;
+}
+
+/* ================= LIST ================= */
 
 .section {
   margin-top: 22px;
@@ -80,43 +183,19 @@ h2 {
 
 .row {
   display: grid;
-  grid-template-columns: 70px 1fr 80px;
+  grid-template-columns: 60px 1fr 90px;
+  gap: 10px;
   padding: 10px;
   background: var(--card);
-  border-left: 3px solid transparent;
   margin-bottom: 6px;
-  opacity: 0.7;
+  opacity: 0.75;
+  align-items: center;
 }
 
-.row.best {
-  border-left: 4px solid var(--accent);
+.row.active-row {
+  border-left: 3px solid var(--accent);
   opacity: 1;
-}
-
-.time {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.route {
-  font-size: 13px;
-}
-
-.count {
-  text-align: right;
-  font-size: 12px;
-  color: var(--sub);
-}
-
-/* ---------------- ANIMATION ---------------- */
-
-.fade {
-  animation: fadeIn 0.35s ease both;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  background: rgba(123,30,43,0.08);
 }
 
 </style>
@@ -124,9 +203,9 @@ h2 {
 
 <body>
 
-<h2>Transit Decision System</h2>
+<h2>Transit Dashboard</h2>
 
-<div id="decision"></div>
+<div id="commutes"></div>
 
 <div class="section">
   <div class="section-title">Next trains — Alexanderplatz</div>
@@ -140,156 +219,168 @@ h2 {
 
 <script>
 
-/* ---------------- CONFIG ---------------- */
-
 const CONFIG = {
   alex: {
     stopId: "900100003",
     name: "Alexanderplatz",
     walk: 7,
-    directions: ["hönow", "kaulsdorf"]
+    label: "WORK → HOME — ALEXANDERPLATZ"
   },
   samariter: {
     stopId: "900120009",
     name: "Samariterstraße",
     walk: 9,
-    directions: ["hauptbahnhof"]
+    label: "HOME → WORK — SAMARITERSTRASSE"
   }
 };
 
-/* ---------------- API ---------------- */
+let alexList = [];
+let samList = [];
+let alexBest = null;
+let samBest = null;
+
+function mins(t) {
+  const time = new Date(t).getTime();
+  if (isNaN(time)) return null;
+  return Math.round((time - Date.now()) / 60000);
+}
+
+function isSamariterActiveNow() {
+  const now = new Date();
+  const m = now.getHours() * 60 + now.getMinutes();
+
+  return (
+    (m >= 8 * 60 && m < 10 * 60) ||
+    (m >= 11 * 60 && m < 13 * 60 + 15)
+  );
+}
 
 async function fetchDepartures(id) {
-  try {
-    const r = await fetch(
-      `https://v6.bvg.transport.rest/stops/${id}/departures?products=subway&lines=U5&results=60&duration=100`
-    );
-    const d = await r.json();
-    return d.departures || [];
-  } catch {
-    return [];
-  }
+  const r = await fetch(
+    `https://v6.bvg.transport.rest/stops/${id}/departures?products=subway&lines=U5&results=60&duration=120`
+  );
+  const d = await r.json();
+  return d.departures || [];
 }
 
-/* ---------------- FILTER ---------------- */
+function isValidU5Eastbound(dep) {
+  const dir = (dep.direction || "").toLowerCase();
+  const dest = (dep.destination?.name || "").toLowerCase();
 
-function filter(deps, kws) {
-  kws = kws.map(k => k.toLowerCase());
-
-  return deps.filter(d => {
-    const dir = (d.direction || "").toLowerCase();
-    const dest = (d.destination?.name || "").toLowerCase();
-    return kws.some(k => dir.includes(k) || dest.includes(k));
-  });
+  return dir.includes("hönow") || dest.includes("hönow");
 }
 
-/* ---------------- TIME ---------------- */
+function isValidU5Westbound(dep) {
+  const dir = (dep.direction || "").toLowerCase();
+  const dest = (dep.destination?.name || "").toLowerCase();
 
-const mins = t => Math.round((new Date(t) - new Date()) / 60000);
-
-function label(t) {
-  const m = mins(t);
-  if (m <= 0) return "NOW";
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m/60)}h`;
+  return dir.includes("hauptbahnhof") || dest.includes("hauptbahnhof");
 }
 
-/* ---------------- BEST ---------------- */
-
-function bestOption(deps, walk, station) {
-  const valid = deps
-    .map(d => ({ ...d, m: mins(d.when), station, walk }))
-    .filter(d => d.m >= walk);
-
-  if (!valid.length) return null;
-
-  valid.sort((a, b) => a.m - b.m);
-  return valid[0];
+function filterAlex(deps) {
+  return deps.filter(isValidU5Eastbound);
 }
 
-/* ---------------- DECISION ---------------- */
-
-function buildDecision(a, s) {
-  const list = [a, s].filter(Boolean);
-  list.sort((x, y) => (x.m - x.walk) - (y.m - y.walk));
-
-  return {
-    primary: list[0] || null,
-    secondary: list[1] || null
-  };
+function filterSam(deps) {
+  return deps.filter(isValidU5Westbound);
 }
 
-/* ---------------- RENDER DECISION ---------------- */
+function pickBest(deps, walk, cfg) {
+  return deps
+    .map(d => ({ ...d, m: mins(d.when), walk, ...cfg }))
+    .filter(d => typeof d.m === "number")
+    .sort((a, b) => {
+      const aValid = a.m >= a.walk;
+      const bValid = b.m >= b.walk;
 
-function renderDecision(d) {
-  const el = document.getElementById("decision");
+      if (aValid !== bValid) return aValid ? -1 : 1;
 
-  const block = (item, sec=false) => {
-    if (!item) return "";
+      return a.m - b.m;
+    })[0] || null;
+}
 
-    const leaveIn = item.m - item.walk;
+function getBars(leaveIn) {
+  if (leaveIn > 4) return 1;
+  const bars = 5 - leaveIn;
+  return Math.max(1, Math.min(5, bars));
+}
 
-    return `
-      <div class="decision fade ${sec ? "secondary" : ""}">
-        <div class="title">${item.station}</div>
+document.getElementById("commutes").innerHTML = `
+  <div id="alexCard" class="card"></div>
+  <div id="samCard" class="card"></div>
+`;
 
-        <div class="big">
-          ${sec ? "Alternative → " : "GO → "}
-          Leave in ${leaveIn} min
-        </div>
+function updateCard(el, item, active) {
+  if (!item) return;
 
-        <div class="small">
-          Next train in ${label(item.when)}
-        </div>
-      </div>
-    `;
-  };
+  const leaveIn = item.m - item.walk;
+  const urgent = leaveIn <= 1;
+  const bars = getBars(leaveIn);
+
+  const progressHTML = `
+    <div class="bar-meter ${leaveIn <= 1 ? "critical" : ""} ${active ? "meter-active" : "meter-inactive"}">
+      ${Array.from({ length: 5 }).map((_, i) => `
+        <div class="bar ${i < bars ? "on" : ""}"
+             style="animation-delay:${i * 80}ms"></div>
+      `).join("")}
+    </div>
+  `;
+
+  el.className = `card ${active ? "active" : "inactive"} ${urgent ? "pulse" : ""}`;
 
   el.innerHTML = `
-    ${block(d.primary)}
-    ${block(d.secondary, true)}
+    <div class="title">${item.label}</div>
+    <div class="big">${urgent ? "LEAVE NOW" : `Leave in ${leaveIn} min`}</div>
+    ${progressHTML}
+    <div class="small">Next train in ${Math.max(0, item.m)} min</div>
   `;
 }
 
-/* ---------------- RENDER LIST ---------------- */
+function renderList(id, deps, best) {
+  document.getElementById(id).innerHTML = deps
+    .filter(d => mins(d.when) !== null && mins(d.when) > -30)
+    .slice(0, 8)
+    .map(d => {
+      const isActive = best && Math.abs(new Date(d.when) - new Date(best.when)) < 1000;
 
-function renderList(id, deps) {
-  const el = document.getElementById(id);
-
-  el.innerHTML = deps.slice(0, 4).map(d => `
-    <div class="row fade">
-      <div class="time">${label(d.when)}</div>
-      <div class="route">U5 → ${d.direction || d.destination?.name}</div>
-      <div class="count">${new Date(d.when).toLocaleTimeString([], {
-        hour:"2-digit",
-        minute:"2-digit"
-      })}</div>
-    </div>
-  `).join("");
+      return `
+        <div class="row ${isActive ? "active-row" : ""}">
+          <div>${mins(d.when)}m</div>
+          <div>${d.direction || d.destination?.name}</div>
+          <div>${new Date(d.when).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+        </div>
+      `;
+    }).join("");
 }
 
-/* ---------------- LOAD ---------------- */
+async function loadData() {
+  const [a, s] = await Promise.all([
+    fetchDepartures(CONFIG.alex.stopId),
+    fetchDepartures(CONFIG.samariter.stopId)
+  ]);
 
-async function load() {
-  const a = await fetchDepartures(CONFIG.alex.stopId);
-  const s = await fetchDepartures(CONFIG.samariter.stopId);
+  alexList = filterAlex(a);
+  samList = filterSam(s);
 
-  const alex = filter(a, CONFIG.alex.directions);
-  const sam = filter(s, CONFIG.samariter.directions);
+  alexBest = pickBest(alexList, CONFIG.alex.walk, CONFIG.alex);
+  samBest = pickBest(samList, CONFIG.samariter.walk, CONFIG.samariter);
 
-  const alexBest = bestOption(alex, CONFIG.alex.walk, CONFIG.alex.name);
-  const samBest = bestOption(sam, CONFIG.samariter.walk, CONFIG.samariter.name);
-
-  renderDecision(buildDecision(alexBest, samBest));
-
-  renderList("alexList", alex);
-  renderList("samList", sam);
+  renderList("alexList", alexList, alexBest);
+  renderList("samList", samList, samBest);
 }
 
-/* ---------------- INIT ---------------- */
+function render() {
+  const samActive = isSamariterActiveNow();
 
-load();
-setInterval(load, 30000);
+  updateCard(document.getElementById("alexCard"), alexBest, !samActive);
+  updateCard(document.getElementById("samCard"), samBest, samActive);
+}
+
+loadData();
+render();
+
+setInterval(render, 1000);
+setInterval(loadData, 30000);
 
 </script>
 
