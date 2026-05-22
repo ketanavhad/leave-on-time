@@ -191,41 +191,29 @@ h2 { margin-bottom:18px; }
 <button class="menu-btn" onclick="toggleMenu()">☰</button>
 
 <div class="menu" id="menu">
-
-  <h3>Station A (Work → Home)</h3>
-
+  <h3>Journey A → B (Work → Home)</h3>
   <div class="suggest-box">
     <input id="alexInput" placeholder="S+U Alexanderplatz Bhf (Berlin)">
+    <input id="alexStopId" type="hidden">
     <div id="alexSuggest" class="suggest-list" style="display:none"></div>
   </div>
-
   <label>Time to reach station (min)</label>
   <input id="alexWalk" type="number">
-
-  <label>Direction filter</label>
-  <input id="alexDirection">
-
   <label>Label</label>
   <input id="alexLabel">
-
-  <h3>Station B (Home → Work)</h3>
-
+  
+  <h3>Journey B → A (Home → Work)</h3>
   <div class="suggest-box">
     <input id="samInput" placeholder="U Samariterstr. (Berlin)">
+    <input id="samStopId" type="hidden">
     <div id="samSuggest" class="suggest-list" style="display:none"></div>
   </div>
-
   <label>Time to reach station (min)</label>
   <input id="samWalk" type="number">
-
-  <label>Direction filter</label>
-  <input id="samDirection">
-
   <label>Label</label>
   <input id="samLabel">
-
+  
   <button onclick="start()">Save & Start</button>
-
 </div>
 
 <h2>Transit Decision System</h2>
@@ -251,14 +239,12 @@ const DEFAULTS = {
     name: "S+U Alexanderplatz Bhf (Berlin)",
     stopId: "900100003",
     walk: 7,
-    direction: "hön, kau",
     label: "WORK → HOME"
   },
   sam: {
     name: "U Samariterstr. (Berlin)",
     stopId: "900120009",
     walk: 9,
-    direction: "hau",
     label: "HOME → WORK"
   }
 };
@@ -285,10 +271,8 @@ function toggleMenu(){
 
 /* ================= AUTOSUGGEST (NEW) ================= */
 
-function attachSuggest(inputEl, boxEl){
-
+function attachSuggest(inputEl, boxEl, hiddenIdEl){
   let t;
-
   inputEl.addEventListener("input", () => {
     const q = inputEl.value.trim();
     if(!q){
@@ -296,40 +280,40 @@ function attachSuggest(inputEl, boxEl){
       boxEl.innerHTML = "";
       return;
     }
-
     clearTimeout(t);
     t = setTimeout(async () => {
       try {
         const res = await fetch(`https://v6.bvg.transport.rest/locations?query=${encodeURIComponent(q)}&results=5`);
+        if (!res.ok) throw new Error(`API returned ${res.status}`);
         const data = await res.json();
-
         if(!data.length){
           boxEl.style.display = "none";
           return;
         }
-
         boxEl.innerHTML = data.map((s, i) => `
           <div class="suggest-item" data-id="${s.id}" data-name="${s.name}">
             ${s.name}
           </div>
         `).join("");
-
         boxEl.style.display = "block";
-
+        
+        // ✨ FIX: Use mousedown instead of click (fires before blur)
         [...boxEl.querySelectorAll(".suggest-item")].forEach(item => {
-          item.onclick = () => {
+          item.addEventListener("mousedown", (e) => {
+            e.preventDefault(); // Prevent input from losing focus
             inputEl.value = item.dataset.name;
+            hiddenIdEl.value = item.dataset.id;
             boxEl.style.display = "none";
             boxEl.innerHTML = "";
-          };
+          });
         });
-
-      } catch(e){
+      } catch(e) {
         console.error(e);
       }
     }, 250);
   });
-
+  
+  // Close dropdown when clicking outside
   document.addEventListener("click", (e) => {
     if(!boxEl.contains(e.target) && e.target !== inputEl){
       boxEl.style.display = "none";
@@ -341,28 +325,82 @@ function attachSuggest(inputEl, boxEl){
 
 function fillForm(cfg){
   alexInput.value = cfg.alex.name;
+  alexStopId.value = cfg.alex.stopId;
   alexWalk.value = cfg.alex.walk;
-  alexDirection.value = cfg.alex.direction;
   alexLabel.value = cfg.alex.label;
-
+  
   samInput.value = cfg.sam.name;
+  samStopId.value = cfg.sam.stopId;
   samWalk.value = cfg.sam.walk;
-  samDirection.value = cfg.sam.direction;
   samLabel.value = cfg.sam.label;
+}
+
+/* ================= ERROR HANDLING ================= */
+let lastError = null;
+
+function showError(context, error) {
+  console.error(`[${context}]`, error);
+  lastError = {
+    context,
+    message: error.message || "Network error",
+    time: new Date()
+  };
+  // Show error in UI
+  const errorDiv = document.getElementById("errorBanner") || createErrorBanner();
+  errorDiv.textContent = `⚠️ ${context}: ${lastError.message}`;
+  errorDiv.style.display = "block";
+  // Auto-hide after 8 seconds
+  setTimeout(() => {
+    if (errorDiv) errorDiv.style.display = "none";
+  }, 8000);
+}
+
+function createErrorBanner() {
+  const div = document.createElement("div");
+  div.id = "errorBanner";
+  div.style.cssText = `
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--danger);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 4px;
+    z-index: 30;
+    display: none;
+    max-width: 90%;
+    text-align: center;
+  `;
+  document.body.appendChild(div);
+  return div;
 }
 
 /* ================= API ================= */
 
 async function resolve(q){
-  const r = await fetch(`https://v6.bvg.transport.rest/locations?query=${encodeURIComponent(q)}&results=1`);
-  const d = await r.json();
-  return d[0];
+  try {
+    const r = await fetch(`https://v6.bvg.transport.rest/locations?query=${encodeURIComponent(q)}&results=1`);
+    if (!r.ok) throw new Error(`API returned ${r.status}`);
+    const d = await r.json();
+    if (!d || d.length === 0) throw new Error("Station not found");
+    return d[0];
+  } catch (e) {
+    showError("Station lookup failed", e);
+    throw e; // Re-throw so caller knows it failed
+  }
 }
 
-async function fetchDeps(id){
-  const r = await fetch(`https://v6.bvg.transport.rest/stops/${id}/departures?products=subway&lines=U5&results=60&duration=120`);
-  const d = await r.json();
-  return d.departures||[];
+async function fetchJourneys(fromId, toId){
+  try {
+    const r = await fetch(`https://v6.bvg.transport.rest/journeys?from=${fromId}&to=${toId}&results=5&stopovers=false`);
+    if (!r.ok) throw new Error(`API returned ${r.status}`);
+    const d = await r.json();
+    return d.journeys || [];
+  } catch (e) {
+    showError("Journey fetch failed", e);
+    return [];
+  }
 }
 
 /* ================= CORE ================= */
@@ -371,18 +409,24 @@ function mins(t){
   return Math.round((new Date(t)-Date.now())/60000);
 }
 
-function pick(deps,walk,cfg){
-  return deps.map(d=>({...d,m:mins(d.when),walk,...cfg}))
-    .filter(d=>d.m>=d.walk)
-    .sort((a,b)=>a.m-b.m)[0];
-}
-
-function filter(deps,dirs){
-  return deps.filter(d=>{
-    const x=(d.direction||"").toLowerCase();
-    const y=(d.destination?.name||"").toLowerCase();
-    return dirs.some(t=>x.includes(t)||y.includes(t));
-  });
+function pick(journeys, walk, cfg){
+  return journeys
+    .map(j => {
+      const depTime = new Date(j.legs[0].departure);
+      const arrTime = new Date(j.legs[j.legs.length - 1].arrival);
+      const m = mins(depTime);
+      return {
+        departure: depTime,
+        arrival: arrTime,
+        duration: Math.round((arrTime - depTime) / 60000),
+        m: m,
+        walk: walk,
+        legs: j.legs.length,
+        ...cfg
+      };
+    })
+    .filter(j => j.m >= j.walk) // Only reachable journeys
+    .sort((a, b) => a.m - b.m)[0]; // Pick soonest
 }
 
 /* ================= UI ================= */
@@ -391,38 +435,55 @@ function bars(n){
   return Math.max(1,Math.min(5,5-n));
 }
 
-function card(el,item){
-  if(!item) return;
-
-  const leave=item.m-item.walk;
-  const b=bars(leave);
-
-  el.className=`card ${leave<=1?"pulse":"active"}`;
-
-  el.innerHTML=`
+function card(el, item){
+  if(!item) {
+    el.className = "card";
+    el.innerHTML = `
+      <div class="title">WAITING FOR DATA</div>
+      <div class="big">Loading journeys...</div>
+      <div class="small">Checking transit API</div>
+    `;
+    return;
+  }
+  const leave = item.m - item.walk;
+  const b = bars(leave);
+  el.className = `card ${leave <= 1 ? "pulse" : "active"}`;
+  el.innerHTML = `
     <div class="title">${item.label}</div>
-    <div class="big">${leave<=1?"LEAVE NOW":`Leave in ${leave} min`}</div>
-
-    <div class="bar-meter ${leave<=1?"critical":""}">
-      ${Array.from({length:5}).map((_,i)=>
-        `<div class="bar ${i<b?"on":""}"></div>`
+    <div class="big">${leave <= 1 ? "LEAVE NOW" : `Leave in ${leave} min`}</div>
+    <div class="bar-meter ${leave <= 1 ? "critical" : ""}">
+      ${Array.from({length:5}).map((_, i) =>
+        `<div class="bar ${i < b ? "on" : ""}"></div>`
       ).join("")}
     </div>
-
-    <div class="small">Next train in ${item.m} min</div>
+    <div class="small">Departs in ${item.m} min • ${item.duration} min trip • ${item.legs} leg${item.legs > 1 ? 's' : ''}</div>
   `;
 }
 
-function list(id,deps,best){
-  document.getElementById(id).innerHTML=deps.slice(0,6).map(d=>{
-    const m=mins(d.when);
-    const a=best&&Math.abs(new Date(d.when)-new Date(best.when))<1000;
+function list(id, journeys, best){
+  document.getElementById(id).innerHTML = journeys.slice(0, 6).map(j => {
+    const depTime = new Date(j.legs[0].departure);
+    const arrTime = new Date(j.legs[j.legs.length - 1].arrival);
+    const m = mins(depTime);
+    const duration = Math.round((arrTime - depTime) / 60000);
+    const isActive = best && Math.abs(depTime - best.departure) < 1000;
+    
+    // ✨ Extract line names WITH direction
+    const lines = j.legs
+      .filter(leg => leg.line)
+      .map(leg => {
+        const lineName = leg.line.name;
+        const direction = leg.direction || leg.destination?.name || '';
+        return direction ? `${lineName} → ${direction}` : lineName;
+      })
+      .join(", ");
+    
     return `
-      <div class="row ${a?"active-row":""}">
+      <div class="row ${isActive ? "active-row" : ""}">
         <div>${m}m</div>
-        <div>${d.direction||d.destination?.name}</div>
-        <div>${new Date(d.when).toLocaleTimeString([],{
-          hour:"2-digit",minute:"2-digit"
+        <div>${lines || 'Walk'} • ${duration}m</div>
+        <div>${depTime.toLocaleTimeString([], {
+          hour:"2-digit", minute:"2-digit"
         })}</div>
       </div>
     `;
@@ -432,63 +493,73 @@ function list(id,deps,best){
 /* ================= RUN ================= */
 
 async function start(){
-
   const cfg = loadSettings();
-
-  const a = await resolve(alexInput.value);
-  const s = await resolve(samInput.value);
-
+  
+  // Use stored stopId if available, otherwise resolve from name
+  let alexId = alexStopId.value;
+  let samId = samStopId.value;
+  
+  if (!alexId) {
+    try {
+      const a = await resolve(alexInput.value);
+      alexId = a.id;
+    } catch (e) {
+      return;
+    }
+  }
+  
+  if (!samId) {
+    try {
+      const s = await resolve(samInput.value);
+      samId = s.id;
+    } catch (e) {
+      return;
+    }
+  }
+  
   CONFIG = {
-    alex:{
-      stopId:a.id,
-      name:a.name,
-      walk:+alexWalk.value,
-      direction:alexDirection.value.split(",").map(x=>x.trim()),
-      label:alexLabel.value
+    alex: {
+      stopId: alexId,
+      name: alexInput.value,
+      walk: +alexWalk.value,
+      label: alexLabel.value
     },
-    sam:{
-      stopId:s.id,
-      name:s.name,
-      walk:+samWalk.value,
-      direction:samDirection.value.split(",").map(x=>x.trim()),
-      label:samLabel.value
+    sam: {
+      stopId: samId,
+      name: samInput.value,
+      walk: +samWalk.value,
+      label: samLabel.value
     }
   };
-
   saveSettings(CONFIG);
-
-  document.getElementById("alexTitle").innerText = CONFIG.alex.name;
-  document.getElementById("samTitle").innerText = CONFIG.sam.name;
-
-  document.getElementById("commutes").innerHTML=`
+  
+  document.getElementById("alexTitle").innerText = `${CONFIG.alex.name} → ${CONFIG.sam.name}`;
+  document.getElementById("samTitle").innerText = `${CONFIG.sam.name} → ${CONFIG.alex.name}`;
+  document.getElementById("commutes").innerHTML = `
     <div id="alexCard" class="card"></div>
     <div id="samCard" class="card"></div>
   `;
-
+  
   await load();
   render();
-
-  setInterval(load,30000);
-  setInterval(render,1000);
+  setInterval(load, 30000);
+  setInterval(render, 1000);
 }
 
 async function load(){
-  const [a,s]=await Promise.all([
-    fetchDeps(CONFIG.alex.stopId),
-    fetchDeps(CONFIG.sam.stopId)
+  const [alexJourneys, samJourneys] = await Promise.all([
+    fetchJourneys(CONFIG.alex.stopId, CONFIG.sam.stopId), // A → B
+    fetchJourneys(CONFIG.sam.stopId, CONFIG.alex.stopId)  // B → A
   ]);
-
-  const af=filter(a,CONFIG.alex.direction);
-  const sf=filter(s,CONFIG.sam.direction);
-
-  const ab=pick(af,CONFIG.alex.walk,CONFIG.alex);
-  const sb=pick(sf,CONFIG.sam.walk,CONFIG.sam);
-
-  list("alexList",af,ab);
-  list("samList",sf,sb);
-
-  window._alexBest=ab;
-  window._samBest=sb;
+  
+  const ab = pick(alexJourneys, CONFIG.alex.walk, CONFIG.alex);
+  const sb = pick(samJourneys, CONFIG.sam.walk, CONFIG.sam);
+  
+  list("alexList", alexJourneys, ab);
+  list("samList", samJourneys, sb);
+  
+  window._alexBest = ab;
+  window._samBest = sb;
 }
 
 function render(){
@@ -500,8 +571,8 @@ function render(){
 
 fillForm(loadSettings());
 
-attachSuggest(alexInput, alexSuggest);
-attachSuggest(samInput, samSuggest);
+attachSuggest(alexInput, alexSuggest, alexStopId);
+attachSuggest(samInput, samSuggest, samStopId);
 
 start();
 
