@@ -541,10 +541,13 @@ async function start(){
     <div id="samCard" class="card"></div>
   `;
   
-  await load();
-  render();
-  setInterval(load, 30000);
-  setInterval(render, 1000);
+await load();
+render();
+
+document.getElementById("menu").classList.remove("open");
+
+setInterval(load, 30000);
+setInterval(render, 1000);
 }
 
 async function load(){
