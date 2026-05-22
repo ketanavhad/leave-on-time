@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <title>Transit Decision System</title>
 
@@ -494,7 +494,6 @@ function list(id, journeys, best){
 /* ================= RUN ================= */
 
 async function start(){
-  toggleMenu(); // Close menu when startingsync function start(){
   const cfg = loadSettings();
   
   // Use stored stopId if available, otherwise resolve from name
@@ -572,11 +571,9 @@ function render(){
 /* ================= BOOT ================= */
 
 fillForm(loadSettings());
-
 attachSuggest(alexInput, alexSuggest, alexStopId);
 attachSuggest(samInput, samSuggest, samStopId);
-
-start();
+window.addEventListener('DOMContentLoaded', start);
 
 </script>
 
