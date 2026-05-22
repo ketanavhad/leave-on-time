@@ -193,7 +193,7 @@ h2 { margin-bottom:18px; }
 <div class="menu" id="menu">
   <h3>Journey A → B (Work → Home)</h3>
   <div class="suggest-box">
-    <input id="alexInput" placeholder="S+U Alexanderplatz Bhf (Berlin)">
+    <input id="alexInput" placeholder="S+U Alexanderplatz Bhf (Berlin)" autocomplete="off">
     <input id="alexStopId" type="hidden">
     <div id="alexSuggest" class="suggest-list" style="display:none"></div>
   </div>
@@ -204,7 +204,7 @@ h2 { margin-bottom:18px; }
   
   <h3>Journey B → A (Home → Work)</h3>
   <div class="suggest-box">
-    <input id="samInput" placeholder="U Samariterstr. (Berlin)">
+    <input id="samInput" placeholder="U Samariterstr. (Berlin)" autocomplete="off">
     <input id="samStopId" type="hidden">
     <div id="samSuggest" class="suggest-list" style="display:none"></div>
   </div>
@@ -493,6 +493,7 @@ function list(id, journeys, best){
 /* ================= RUN ================= */
 
 async function start(){
+  toggleMenu(); // Close menu when startingsync function start(){
   const cfg = loadSettings();
   
   // Use stored stopId if available, otherwise resolve from name
